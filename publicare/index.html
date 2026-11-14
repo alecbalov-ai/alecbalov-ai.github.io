@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ecosistem Publicare — TikTok publishing</title>
+<style>
+:root{--bg:#0f1020;--card:#191a33;--line:#2c2e55;--txt:#eceefe;--mut:#9a9cc8;--acc:#e8566b;--ok:#3ecf8e;--bad:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+header{display:flex;align-items:center;gap:14px;padding:18px 28px;border-bottom:1px solid var(--line)}
+header img{width:44px;height:44px;border-radius:10px}h1{font-size:20px;margin:0}header p{margin:0;color:var(--mut);font-size:13px}
+main{max-width:980px;margin:24px auto;padding:0 20px;display:grid;gap:18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card h2{font-size:16px;margin:0 0 12px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+button{background:var(--acc);color:#fff;border:0;border-radius:9px;padding:10px 16px;font-weight:600;cursor:pointer}
+button.sec{background:#33356a}button:disabled{opacity:.45;cursor:not-allowed}
+select,textarea,input[type=text]{width:100%;background:#0f1028;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:9px 11px;font:inherit}
+textarea{min-height:90px}label{display:block;margin:10px 0 4px;color:var(--mut);font-size:13px}
+.acc{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.acc.sel{border-color:var(--acc);background:#251c3a}.acc img{width:34px;height:34px;border-radius:50%}
+.grid{display:grid;grid-template-columns:260px 1fr;gap:20px}video{width:100%;border-radius:10px;background:#000;max-height:460px}
+.chk{display:flex;gap:8px;align-items:center;margin:6px 0;color:var(--txt)}.chk input{width:auto}
+.mut{color:var(--mut);font-size:13px}.ok{color:var(--ok)}.bad{color:var(--bad)}#log{white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><img src="icon.png" alt=""><div><h1>Ecosistem Publicare</h1><p>Publishing tool for our own creator accounts — original videos produced by our studio</p></div></header>
+<main>
+ <div class="card"><h2>1. TikTok account</h2>
+  <div id="accs" class="row"><span class="mut">Loading…</span></div>
+  <div class="row" style="margin-top:12px"><button id="connect">Connect TikTok account</button><span id="cmsg" class="mut"></span></div>
+ </div>
+ <div class="card"><h2>2. Publish a video</h2>
+  <div class="grid">
+   <div><label>Video</label><select id="vid"></select><div style="margin-top:10px"><video id="prev" controls muted playsinline></video></div></div>
+   <div>
+    <div id="creator" class="mut">Select an account to load its posting options.</div>
+    <label>Caption</label><textarea id="title" maxlength="2200" placeholder="Write a caption…"></textarea>
+    <label>Who can view this video</label><select id="privacy"><option value="">Select privacy…</option></select>
+    <label>Allow users to</label>
+    <div class="chk"><input type="checkbox" id="c_comment"><span>Comment</span></div>
+    <div class="chk"><input type="checkbox" id="c_duet"><span>Duet</span></div>
+    <div class="chk"><input type="checkbox" id="c_stitch"><span>Stitch</span></div>
+    <label>Content disclosure</label>
+    <div class="chk"><input type="checkbox" id="disc"><span>This video promotes a brand, product or service</span></div>
+    <div id="discopts" style="display:none;margin-left:24px">
+     <div class="chk"><input type="checkbox" id="b_org"><span>Your brand (promotional content)</span></div>
+     <div class="chk"><input type="checkbox" id="b_paid"><span>Branded content (paid partnership)</span></div>
+    </div>
+    <div class="chk"><input type="checkbox" checked disabled><span>AI-generated content label (always on for our videos)</span></div>
+    <p class="mut" id="consent">By posting, you agree to TikTok's <a href="https://www.tiktok.com/legal/page/global/music-usage-confirmation/en" target="_blank" style="color:#c7c9ff">Music Usage Confirmation</a>.</p>
+    <div class="row"><button id="pub">Publish to TikTok</button><button id="draft" class="sec">Send to TikTok as draft</button></div>
+   </div>
+  </div>
+ </div>
+ <div class="card"><h2>3. Status</h2><div id="log" class="mut">Nothing published yet.</div></div>
+ <p class="mut" style="text-align:center">Our <a href="/tiktok-terms" style="color:#c7c9ff">Terms</a> · <a href="/tiktok-privacy" style="color:#c7c9ff">Privacy Policy</a> · The publishing robot runs locally on the account owner's computer; tokens never leave it.</p>
+</main>
+<script>
+const R='http://localhost:8090/tiktok';let ACC=null,CI=null;
+const $=id=>document.getElementById(id);
+const log=(m,c)=>{const l=$('log');if(l.dataset.init!=='1'){l.textContent='';l.dataset.init='1'}l.innerHTML+=`<div class="${c||''}">${new Date().toLocaleTimeString()} — ${m}</div>`};
+async function get(p){const r=await fetch(R+p);return r.json()}
+async function post(p,b){const r=await fetch(R+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);return j}
+async function loadAccounts(){try{const j=await get('/accounts');const a=j.accounts||[];
+ $('accs').innerHTML=a.length?a.map(x=>`<div class="acc" data-id="${x.open_id}"><img src="${x.avatar_url||''}" alt=""><b>${x.display_name||x.open_id}</b></div>`).join(''):'<span class="mut">No account connected yet.</span>';
+ document.querySelectorAll('.acc').forEach(e=>e.onclick=()=>pick(e.dataset.id));if(a.length&&!ACC)pick(a[0].open_id)}catch(e){$('accs').innerHTML='<span class="bad">The local publishing robot is not running on this computer.</span>'}}
+async function pick(id){ACC=id;document.querySelectorAll('.acc').forEach(e=>e.classList.toggle('sel',e.dataset.id===id));$('creator').textContent='Loading posting options…';
+ try{CI=await post('/creator_info',{open_id:id});$('creator').innerHTML=`Posting as <b>${CI.creator_nickname||CI.creator_username}</b> · max video length ${CI.max_video_post_duration_sec||'?'} s`;
+  $('privacy').innerHTML='<option value="">Select privacy…</option>'+(CI.privacy_level_options||[]).map(p=>`<option value="${p}">${({PUBLIC_TO_EVERYONE:'Everyone',MUTUAL_FOLLOW_FRIENDS:'Friends',FOLLOWER_OF_CREATOR:'Followers',SELF_ONLY:'Only me'})[p]||p}</option>`).join('');
+  [['c_comment','comment_disabled'],['c_duet','duet_disabled'],['c_stitch','stitch_disabled']].forEach(([c,k])=>{$(c).disabled=!!CI[k];if(CI[k])$(c).checked=false})
+ }catch(e){$('creator').innerHTML='<span class="bad">'+e.message+'</span>'}}
+async function loadVideos(){try{const j=await get('/videos');$('vid').innerHTML=(j.videos||[]).map(v=>`<option value="${v.name}">${v.name} (${v.mb} MB)</option>`).join('');showPrev()}catch(e){}}
+function showPrev(){const v=$('vid').value;if(v){$('prev').src=R+'/video/'+encodeURIComponent(v);$('title').value=$('title').value||v.replace(/\.(mp4|mov)$/i,'').replace(/^\d+\s*/,'')}}
+$('vid').onchange=()=>{$('title').value='';showPrev()};
+$('disc').onchange=()=>{$('discopts').style.display=$('disc').checked?'block':'none';upd()};
+['b_org','b_paid','privacy'].forEach(i=>$(i).onchange=upd);
+function upd(){const paid=$('b_paid').checked;const o=[...$('privacy').options].find(x=>x.value==='SELF_ONLY');if(o){o.disabled=paid;if(paid&&$('privacy').value==='SELF_ONLY')$('privacy').value=''}
+ $('consent').innerHTML=paid?"By posting, you agree to TikTok's <a href='https://www.tiktok.com/legal/page/global/bc-policy/en' target='_blank' style='color:#c7c9ff'>Branded Content Policy</a> and <a href='https://www.tiktok.com/legal/page/global/music-usage-confirmation/en' target='_blank' style='color:#c7c9ff'>Music Usage Confirmation</a>.":"By posting, you agree to TikTok's <a href='https://www.tiktok.com/legal/page/global/music-usage-confirmation/en' target='_blank' style='color:#c7c9ff'>Music Usage Confirmation</a>.";
+ $('pub').disabled=$('disc').checked&&!$('b_org').checked&&!paid}
+$('connect').onclick=async()=>{try{const c=await get('/config');location.href=c.authorize_url}catch(e){$('cmsg').innerHTML='<span class="bad">The local publishing robot is not running.</span>'}};
+async function send(draft){if(!ACC)return log('Connect and select an account first.','bad');if(!draft&&!$('privacy').value)return log('Choose who can view the video.','bad');
+ $('pub').disabled=$('draft').disabled=true;log((draft?'Sending to TikTok as draft: ':'Uploading and publishing: ')+$('vid').value);
+ try{const j=await post('/publish',{open_id:ACC,name:$('vid').value,title:$('title').value,privacy:$('privacy').value,disable_comment:!$('c_comment').checked,disable_duet:!$('c_duet').checked,disable_stitch:!$('c_stitch').checked,brand_content:$('b_paid').checked,brand_organic:$('b_org').checked,draft});
+  log('Upload finished. TikTok is processing the video (publish id '+j.publish_id+')…');
+  for(let i=0;i<60;i++){await new Promise(r=>setTimeout(r,4000));const s=await post('/status',{open_id:ACC,publish_id:j.publish_id});
+   if(s.status==='PUBLISH_COMPLETE'){log('Published on TikTok ✔ It may take a few minutes to appear on the profile.','ok');break}
+   if(s.status==='SEND_TO_USER_INBOX'){log('Sent to the TikTok inbox as a draft ✔ Open TikTok to finish and post it.','ok');break}
+   if(s.status==='FAILED'){log('TikTok reported a failure: '+(s.fail_reason||''),'bad');break}log('Status: '+s.status)}
+ }catch(e){log(e.message,'bad')}finally{$('pub').disabled=$('draft').disabled=false}}
+$('pub').onclick=()=>send(false);$('draft').onclick=()=>send(true);
+(async()=>{const q=new URLSearchParams(location.search);
+ if(q.get('code')){$('cmsg').textContent='Finishing TikTok authorization…';try{const j=await post('/exchange',{code:q.get('code'),state:q.get('state')});$('cmsg').innerHTML='<span class="ok">Connected: '+(j.user.display_name||'')+'</span>';history.replaceState(null,'',location.pathname)}catch(e){$('cmsg').innerHTML='<span class="bad">'+e.message+'</span>'}}
+ else if(q.get('error')){$('cmsg').innerHTML='<span class="bad">Authorization cancelled: '+q.get('error_description')+'</span>'}
+ await loadAccounts();await loadVideos()})();
+</script>
+</body>
+</html>
